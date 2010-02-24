@@ -1,5 +1,6 @@
 #import <Cocoa/Cocoa.h>
 #import "FFI.h"
+#import "HSObjC_C.h"
 
 void freeStablePtr(HsStablePtr aStablePointer)
 {
@@ -16,32 +17,18 @@ id retrieveId(HsStablePtr aStablePointer)
     return nil;
 }
 
-id uppercase(id inputString)
+
+HSValue *newStoredArray(id someObject)
 {
     return nil;
 }
 
-id doubleTest(id aNumber)
+id retrieveStoredArray(HSValue *aStablePointer)
 {
     return nil;
 }
 
-id integerTest(id aNumber)
-{
-    return nil;
-}
-
-id countAllStrings(id x)
-{
-    return nil;
-}
-
-HsStablePtr newStoredArray(id someObject)
-{
-    return NULL;
-}
-
-id retrieveStoredArray(HsStablePtr aStablePointer)
+id getFunctionList(void)
 {
     return nil;
 }

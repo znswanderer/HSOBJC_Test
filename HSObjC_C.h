@@ -25,7 +25,7 @@
 #include <Foundation/NSArray.h>
 #include <Foundation/NSRange.h>
 #include <Foundation/Foundation.h>
-
+#include "FFI.h"
 
 void releaseId(id object);
 id retainId(id object);
@@ -33,12 +33,14 @@ id autoreleaseId(id object);
 
 id performMethod0(const char* methodName, id object);
 id performMethod1(const char* methodName, id object, id arg1);
+int isKindOf(id object, const char *name);
+
+
 
 NSString *utf8ToNSString(const char* cstr);
 const char *nsStringToUtf8(NSString *str);
 
 
-int isNSNumber(id object);
 double doubleValue(NSNumber *aNumber);
 NSNumber *numberWithDouble(double aDouble);
 long longValue(NSNumber *aNumber);
@@ -47,3 +49,39 @@ NSNumber *numberWithLong(long aLong);
 NSArray *arrayWithCArray(id *objects, NSUInteger count);
 id *getObjects(NSArray *anArray);
 NSUInteger lengthOfArray(NSArray *anArray);
+
+id getKeysAndValues(NSDictionary *aDict);
+NSDictionary *dictWithKeysAndValues(NSArray *keys, NSArray *values);
+
+
+// Arbitrary Haskell values
+// (A wrapper for StablePtr)
+@interface HSValue : NSObject {
+    HsStablePtr *hsValue;
+}
+
+-(id)initWithHaskellValue:(HsStablePtr)value;
+-(void)clearStablePtr;
+-(HsStablePtr)stablePtr;
+
+@end
+
+id newHSValue(const char *name, HsStablePtr value);
+HsStablePtr hsValue_getStablePtr(HSValue *hsvalue);
+
+
+// Functions
+
+// Id -> IO Id
+@interface HSFunc1 : HSValue {
+}
+
+-(id)callWithArg:(id)arg1;
+@end
+
+// Id -> Id -> IO Id
+@interface HSFunc2 : HSValue {
+}
+
+-(id)callWithArg:(id)arg1 arg2:(id)arg2;
+@end

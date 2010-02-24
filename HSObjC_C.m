@@ -16,6 +16,7 @@
 
 
 #include "HSObjC_C.h"
+extern void freeStablePtr(HsStablePtr aStablePointer);
 
 void releaseId(id object)
 {
@@ -46,6 +47,18 @@ id performMethod1(const char* methodName, id object, id arg1)
     SEL theSelector = sel_registerName(methodName);
     return [object performSelector:theSelector withObject:arg1];
 }
+
+int isKindOf(id object, const char *name)
+{
+    Class aClass = (Class)objc_getClass(name);
+    
+    if ([object isKindOfClass:aClass]) 
+        return 1;
+    else 
+        return 0;
+    
+}
+
 
 
 // NSString conversion
@@ -84,14 +97,6 @@ NSString *utf8ToNSString(const char* cstr)
 
 
 // NSNumber handling
-int isNSNumber(id object)
-{
-    if ([object isKindOfClass:[NSNumber class]]) 
-        return 1;
-    else 
-        return 0;
-}
-
 double doubleValue(NSNumber *aNumber)
 {
     return [aNumber doubleValue];
@@ -147,3 +152,101 @@ id *getObjects(NSArray *anArray)
     }
     return objects;
 }
+
+
+// NSDicionary handling
+id getKeysAndValues(NSDictionary *aDict)
+{
+    NSMutableArray *result = [[NSMutableArray alloc] init];
+    [aDict enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
+        [result addObject:[NSArray arrayWithObjects:key, obj, nil]];
+        NSLog(@"Enumerating Key %@ and Value %@",key,obj);
+    }];
+    return [result autorelease];
+}
+
+NSDictionary *dictWithKeysAndValues(NSArray *keys, NSArray *values)
+{
+    return [NSDictionary dictionaryWithObjects:values forKeys:keys];
+}
+
+
+// Arbitrary Haskell values
+// (A wrapper for StablePtr)
+
+id newHSValue(const char *name, HsStablePtr value)
+{
+    Class aClass = (Class)objc_getClass(name);
+    id funcObj = [[aClass alloc] initWithHaskellValue:value];
+    NSLog(@"created: %@", funcObj);
+    [funcObj autorelease];
+    return funcObj;
+}
+
+HsStablePtr hsValue_getStablePtr(HSValue *hsvalue)
+{
+    return [hsvalue stablePtr];
+}
+
+
+@implementation HSValue
+
+-(id)initWithHaskellValue:(HsStablePtr)value;
+{
+    [self init];
+    hsValue = value;
+    return self;
+}
+
+-(void)clearStablePtr;
+{
+    if (hsValue) {
+        freeStablePtr(hsValue);
+        hsValue = NULL;
+        NSLog(@"clearing StablePtr");
+    }
+}
+
+- (void) dealloc
+{
+    [self clearStablePtr];
+    [super dealloc];
+}
+
+- (void)finalize {
+    [self clearStablePtr];
+    [super finalize];
+}
+
+-(HsStablePtr)stablePtr;
+{
+    return hsValue;
+}
+
+@end
+
+
+// Functions
+
+// Id -> IO Id
+extern id callFunc1(HsStablePtr func, id arg1);
+
+@implementation HSFunc1
+
+-(id)callWithArg:(id)arg1;
+{
+    return callFunc1(hsValue, arg1);
+}
+
+@end
+
+// Id -> Id -> IO Id
+extern id callFunc2(HsStablePtr func, id arg1, id arg2);
+
+@implementation HSFunc2
+
+-(id)callWithArg:(id)arg1 arg2:(id)arg2;
+{
+    return callFunc2(hsValue, arg1, arg2);
+}
+@end

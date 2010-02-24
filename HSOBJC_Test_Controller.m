@@ -16,22 +16,34 @@
 
 #import "HSOBJC_Test_Controller.h"
 #import "DummyNSString.h"
+#import "HSObjC_C.h"
 
 void freeStablePtr(HsStablePtr aStablePointer);
 
 HsStablePtr newStableIdContainer(id someObject);
 id retrieveId(HsStablePtr aStablePointer);
 
-id uppercase(id inputString);
-id integerTest(id aNumber);
-id doubleTest(id aNumber);
-id countAllStrings(id x);
+HSValue *newStoredArray(id someObject);
+id retrieveStoredArray(HSValue *aValue);
 
-HsStablePtr newStoredArray(id someObject);
-id retrieveStoredArray(HsStablePtr aStablePointer);
-
+id getFunctionList(void);
 
 @implementation HSOBJC_Test_Controller
+
+- (void)awakeFromNib
+{
+    NSLog(@"registering functions");
+    
+    funcList = [getFunctionList() retain];
+    // shortcuts
+    doubleSqrt = [funcList objectForKey:@"doubleSqrt"];
+    lengthOfStrings = [funcList objectForKey:@"lengthOfStrings"];
+    squareInt = [funcList objectForKey:@"squareInt"];
+    uppercase2 = [funcList objectForKey:@"uppercase2"];
+    
+    NSLog(@"funclist: %@", funcList);
+}
+
 
 // StableId test
 
@@ -46,6 +58,7 @@ id retrieveStoredArray(HsStablePtr aStablePointer);
     [stableId_retrieveButton setEnabled:YES];
     [stableId_inputTextField setEnabled:NO];
 }
+
 - (IBAction)retrieveStableId:(id)sender;
 {
     DummyNSString *dummyString = (DummyNSString*)retrieveId(stableId_stableIdContainer);
@@ -64,7 +77,7 @@ id retrieveStoredArray(HsStablePtr aStablePointer);
 
 - (IBAction)convertString:(id)sender;
 {
-    NSString *upperCaseString = uppercase([string_inputTextField stringValue]);
+    NSString *upperCaseString = [uppercase2 callWithArg:[string_inputTextField stringValue]];
     [string_outputTextField setStringValue:upperCaseString];
 }
 
@@ -74,11 +87,12 @@ id retrieveStoredArray(HsStablePtr aStablePointer);
     NSNumber *value = [NSNumber numberWithDouble:[(NSSlider*)sender doubleValue]];
 
     // double
-    NSNumber *doubleRes = doubleTest(value);
+    NSNumber *doubleRes = [doubleSqrt callWithArg:value];;
     [number_doubleValue setDoubleValue:[doubleRes doubleValue]];
     
     // integer
-    NSNumber *intRes = integerTest(value);
+    //NSNumber *intRes = integerTest(value);
+    NSNumber *intRes = [squareInt callWithArg:value];
     [number_integerValue setIntValue:[intRes intValue]];
     
 }
@@ -88,7 +102,7 @@ id retrieveStoredArray(HsStablePtr aStablePointer);
 {
     NSArray *inputArray = [[(NSTextField*)sender stringValue] componentsSeparatedByString:@", "];
     
-    NSArray *results = countAllStrings(inputArray);
+    NSArray *results = [lengthOfStrings callWithArg:inputArray];
     [array_stringResults setStringValue:[results description]];
 }
 
@@ -98,6 +112,7 @@ id retrieveStoredArray(HsStablePtr aStablePointer);
     NSArray *inputArray = [[(NSTextField*)sender stringValue] componentsSeparatedByString:@", "];
     
     storedArray = newStoredArray(inputArray);
+    [storedArray retain];
     
     [storeArray_retrieveButton setEnabled:YES];
     [storeArray_inputTextField setEnabled:NO];
@@ -113,15 +128,15 @@ id retrieveStoredArray(HsStablePtr aStablePointer);
     [storeArray_inputTextField setEnabled:YES];
     [storeArray_inputTextField selectText:self];
 
-    freeStablePtr(storedArray);
-    storedArray = NULL;
+    //freeStablePtr(storedArray);
+    [storedArray release];
+    storedArray = nil;
 }
 
 // Error test
 - (IBAction)constellation:(id)sender;
 {
-    NSArray *anArray = [NSArray array];
-    uppercase(anArray);
+    [uppercase2 callWithArg:nil];
 }
 
 @end
