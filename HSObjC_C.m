@@ -160,7 +160,6 @@ id getKeysAndValues(NSDictionary *aDict)
     NSMutableArray *result = [[NSMutableArray alloc] init];
     [aDict enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
         [result addObject:[NSArray arrayWithObjects:key, obj, nil]];
-        NSLog(@"Enumerating Key %@ and Value %@",key,obj);
     }];
     return [result autorelease];
 }
@@ -226,6 +225,8 @@ HsStablePtr hsValue_getStablePtr(HSValue *hsvalue)
 @end
 
 
+
+
 // Functions
 
 // Id -> IO Id
@@ -250,3 +251,18 @@ extern id callFunc2(HsStablePtr func, id arg1, id arg2);
     return callFunc2(hsValue, arg1, arg2);
 }
 @end
+
+
+// Support for target/action 
+void connectAsTarget(NSControl *sender, HSFunc1 *targetFunction)
+{
+    [sender setTarget:targetFunction];
+    [sender setAction:@selector(callWithArg:)];
+    
+    // ATTENTION!
+    // We must retain the target function as the sender wont do so.
+    // If we ever want to unset this target, we have to release it again!
+    [targetFunction retain];
+    
+}
+

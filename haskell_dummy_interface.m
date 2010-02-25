@@ -2,10 +2,6 @@
 #import "FFI.h"
 #import "HSObjC_C.h"
 
-void freeStablePtr(HsStablePtr aStablePointer)
-{
-    return;
-}
 
 HsStablePtr newStableIdContainer(id someObject)
 {
@@ -33,8 +29,3 @@ id getFunctionList(void)
     return nil;
 }
 
-
-int main(int argc, char *argv[])
-{
-    return NSApplicationMain(argc,  (const char **) argv);
-}

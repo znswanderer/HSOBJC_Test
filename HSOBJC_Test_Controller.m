@@ -18,6 +18,8 @@
 #import "DummyNSString.h"
 #import "HSObjC_C.h"
 
+id initController(NSDictionary *ivars);
+
 void freeStablePtr(HsStablePtr aStablePointer);
 
 HsStablePtr newStableIdContainer(id someObject);
@@ -32,18 +34,46 @@ id getFunctionList(void);
 
 - (void)awakeFromNib
 {
+    NSDictionary *ivars = [self ivarDictionary];
+    NSLog(@"ivars: %@", ivars);
+    
+    HSValue *controller = initController(ivars);
+    [controller retain];
+    NSLog(@"controller: %@", controller);
+    
+    
+    
     NSLog(@"registering functions");
     
     funcList = [getFunctionList() retain];
+    NSLog(@"funclist: %@", funcList);
+
     // shortcuts
     doubleSqrt = [funcList objectForKey:@"doubleSqrt"];
     lengthOfStrings = [funcList objectForKey:@"lengthOfStrings"];
     squareInt = [funcList objectForKey:@"squareInt"];
     uppercase2 = [funcList objectForKey:@"uppercase2"];
-    
-    NSLog(@"funclist: %@", funcList);
+        
+     
 }
 
+- (NSDictionary*)ivarDictionary;
+{
+    NSMutableDictionary *ivarDict = [[NSMutableDictionary alloc] init];
+
+    unsigned int outCount;
+    Ivar *list = class_copyIvarList([self class], &outCount);
+    for (unsigned int i=0; i<outCount; i++) {
+        const char *prop = ivar_getName(list[i]);
+        id value = object_getIvar(self, list[i]);
+        if (value) {
+            [ivarDict setObject:value forKey:[NSString stringWithCString:prop encoding:NSASCIIStringEncoding]];
+        }
+    }
+    
+    free(list);
+    return [ivarDict autorelease];
+}
 
 // StableId test
 
@@ -56,7 +86,13 @@ id getFunctionList(void);
     [dummyString release];
     
     [stableId_retrieveButton setEnabled:YES];
-    [stableId_inputTextField setEnabled:NO];
+
+    
+    //[stableId_inputTextField setEnabled:NO];
+    NSLog(@"valeForKey: %@", [stableId_inputTextField valueForKey:@"enabled"]);
+    [stableId_inputTextField setValue:[NSNumber numberWithBool:NO] forKey:@"enabled"];
+    NSLog(@"valeForKey: %@", [stableId_inputTextField valueForKey:@"enabled"]);
+    
 }
 
 - (IBAction)retrieveStableId:(id)sender;
@@ -73,29 +109,7 @@ id getFunctionList(void);
 }
 
 
-// NSString test
 
-- (IBAction)convertString:(id)sender;
-{
-    NSString *upperCaseString = [uppercase2 callWithArg:[string_inputTextField stringValue]];
-    [string_outputTextField setStringValue:upperCaseString];
-}
-
-// NSNumber test
-- (IBAction)newNumberFromSlider:(id)sender;
-{
-    NSNumber *value = [NSNumber numberWithDouble:[(NSSlider*)sender doubleValue]];
-
-    // double
-    NSNumber *doubleRes = [doubleSqrt callWithArg:value];;
-    [number_doubleValue setDoubleValue:[doubleRes doubleValue]];
-    
-    // integer
-    //NSNumber *intRes = integerTest(value);
-    NSNumber *intRes = [squareInt callWithArg:value];
-    [number_integerValue setIntValue:[intRes intValue]];
-    
-}
 
 // NSArray test
 - (IBAction)arrayInput:(id)sender;

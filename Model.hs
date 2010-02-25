@@ -1,4 +1,4 @@
-{-# LANGUAGE ForeignFunctionInterface, DeriveDataTypeable #-}
+{-# LANGUAGE ForeignFunctionInterface #-}
 
 --  ================================================================
 --  Copyright (C) 2010 Tim Scheffler
@@ -15,6 +15,10 @@
 --  See the License for the specific language governing permissions and
 --  limitations under the License.
 --  ================================================================ 
+
+module Model
+    ()
+where 
 
 import Control.Monad
 import Control.Monad.Error
@@ -33,9 +37,9 @@ import qualified Data.Map as M
 import HSObjC
 
 
-foreign import ccall "Cocoa.h NSApplicationMain" c_NSApplicationMain :: CInt -> Ptr (Ptr CChar) -> IO CInt
-
-main = c_NSApplicationMain 0 nullPtr
+--foreign import ccall "Cocoa.h NSApplicationMain" c_NSApplicationMain :: CInt -> Ptr (Ptr CChar) -> IO CInt
+--
+--main = c_NSApplicationMain 0 nullPtr
 
 
 --------------------
@@ -56,46 +60,36 @@ getFunctionList = catchOBJC $
                        toId $ M.fromList funcList'
 
 
-wrapIO :: (OBJC a) => a -> IOOBJC StableId
-wrapIO f = fromId =<< toId f
-
-wrap1 :: (OBJC a, OBJC b) => (a -> b) -> IOOBJC StableId
-wrap1 f = wrapIO1 (return . f)
-    where wrapIO1 :: (OBJC a, OBJC b) => (a -> IO b) -> IOOBJC StableId
-          wrapIO1 f = fromId =<< toId f
-    
-wrap2 :: (OBJC a, OBJC b, OBJC c) => (a -> b -> c) -> IOOBJC StableId
-wrap2 f = wrapIO2 $ \x y -> return $ f x y
-  where wrapIO2 :: (OBJC a, OBJC b, OBJC c) => (a -> b -> IO c) -> IOOBJC StableId
-        wrapIO2 f = fromId =<< toId f
                    
 
 -- we have to wrap in order to get an array with strict types
-funcList = [ ("squareInt",       wrap1  ( (\x -> x ^ 2) :: (Int -> Int) )       )
-           , ("doubleSqrt",      wrap1  ( sqrt          :: (Double -> Double) ) )
-           , ("uppercase2",      wrapIO uppercase2                              )
-           , ("lengthOfStrings", wrap1  lengthOfStrings                         )
+funcList = [ ("squareInt",       wrap1    ( (\x -> x ^ 2) :: (Int -> Int) )       )
+           , ("doubleSqrt",      wrap1    ( sqrt          :: (Double -> Double) ) )
+           , ("uppercase2",      toStblID uppercase2                              )
+           , ("lengthOfStrings", wrap1    lengthOfStrings                         )
            ]
 
 
+                                
+                                
 
 
-uppercase2 :: T.Text -> IO T.Text
+
+uppercase2 :: T.Text -> IOOBJC T.Text
 uppercase2 s = do nsLog "uppercase2"
-                  x <- catchOBJC $ toId $ T.toUpper s
+                  x <- toId $ T.toUpper s
 
-                  catchOBJC $ do des <- fromId 
-                                           =<< perfSel0 "description" 
-                                           =<< perfSel0 "class" x
-                                 liftIO $ nsLog $ "Class name: " ++ (T.unpack des)
-                                 return nullPtr
+                  --catchOBJC $ do des <- fromId 
+                  --                         =<< perfSel0 "description" 
+                  --                         =<< perfSel0 "class" x
+                  --               liftIO $ nsLog $ "Class name: " ++ (T.unpack des)
+                  --               return nullPtr
 
                   return $ T.toUpper s
 
 {- ### StableId Test ### -}
 
 data StableIdContainer = StableIdContainer {inner :: StableId}
-    deriving (Typeable)
 
 foreign export ccall newStableIdContainer :: Id -> IO (StablePtr StableIdContainer)
 newStableIdContainer :: Id -> IO (StablePtr StableIdContainer)

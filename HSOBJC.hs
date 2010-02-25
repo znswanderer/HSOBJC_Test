@@ -18,18 +18,23 @@
 
 module HSObjC
     (
+     c_NSApplicationMain,
      Id,
      StableId,
      StableValue(..),
      IOOBJC,
      OBJCError,
      OBJC(..),
-     perfSel0,
-     perfSel1,
+     perfSel0, perfSel0',
+     perfSel1, perfSel1',
      catchOBJC,
      toCocoa,
      nsLog,
-     freeStablePtr
+     freeStablePtr,
+     toStblID, wrap1, wrap2,
+     OutletTable,
+     withOutlet,
+     makeTarget
     ) where
 
 import Foreign
@@ -75,6 +80,8 @@ foreign import ccall unsafe "HSObjC_C.h dictWithKeysAndValues" c_dictWithKeysAnd
 foreign import ccall unsafe "HSObjC_C.h newHSValue"       c_newHSValue       :: CString -> (StablePtr a) -> IO Id
 foreign import ccall unsafe "HSObjC_C.h hsValue_getStablePtr" c_getStablePtr :: Id -> IO (StablePtr (StableValue a))
 
+foreign import ccall unsafe "HSObjC_C.h connectAsTarget"  c_connectAsTarget  :: Id -> Id -> IO ()
+
 
 
 {- These functions are imported "safe", because they might call back into the Haskell
@@ -84,11 +91,17 @@ foreign import ccall unsafe "HSObjC_C.h hsValue_getStablePtr" c_getStablePtr :: 
         - The sending of random methods to random objects surely can trigger callbacks
           to the Haskell runtime.
 -}
-foreign import ccall        "HSObjC_C.h &releaseId"       c_FunPtr_releaseId :: FunPtr (Id -> IO ())
-foreign import ccall        "HSObjC_C.h autoreleaseId"    c_autoreleaseId    :: Id -> IO Id
-foreign import ccall        "HSObjC_C.h performMethod0"   c_performMethod0   :: CString -> Id -> IO Id
-foreign import ccall        "HSObjC_C.h performMethod1"   c_performMethod1   :: CString -> Id -> Id -> IO Id
-foreign import ccall        "HSObjC_C.h isKindOf"         c_isKindOf         :: Id -> CString -> IO CInt
+foreign import ccall        "Cocoa.h NSApplicationMain"   c_NSApplicationMain :: CInt -> Ptr (Ptr CChar) -> IO CInt
+foreign import ccall        "HSObjC_C.h &releaseId"       c_FunPtr_releaseId  :: FunPtr (Id -> IO ())
+foreign import ccall        "HSObjC_C.h autoreleaseId"    c_autoreleaseId     :: Id -> IO Id
+foreign import ccall        "HSObjC_C.h performMethod0"   c_performMethod0    :: CString -> Id -> IO Id
+foreign import ccall        "HSObjC_C.h performMethod1"   c_performMethod1    :: CString -> Id -> Id -> IO Id
+foreign import ccall        "HSObjC_C.h isKindOf"         c_isKindOf          :: Id -> CString -> IO CInt
+
+-- exports
+foreign export ccall callFunc1 :: (StablePtr (Id -> IOOBJC Id)) -> Id -> IO Id
+foreign export ccall callFunc2 :: (StablePtr (Id -> Id -> IOOBJC Id)) -> Id -> Id -> IO Id
+
 
 
 
@@ -100,12 +113,28 @@ checkNullPtr msg act = do ptrId <- liftIO act
                              then throwError msg
                              else return ptrId
 
-perfSel0 :: String -> Id -> IOOBJC Id
-perfSel0 msg = liftIO . BS.useAsCString (BS8.pack msg) . flip c_performMethod0
+perfSel0 :: (OBJC a, OBJC b) => a -> String -> IOOBJC b
+perfSel0 obj msg = do ptr <- toId obj
+                      res <- liftIO $ BS.useAsCString (BS8.pack msg) $ 
+                                \cstr -> c_performMethod0 cstr ptr
+                      fromId res
 
-perfSel1 :: String -> Id -> Id -> IOOBJC Id
-perfSel1 msg obj arg = liftIO $ 
-                        BS.useAsCString (BS8.pack msg) $ \cstr -> c_performMethod1 cstr obj arg
+                        
+perfSel1 :: (OBJC a, OBJC b, OBJC c) => a -> String -> b -> IOOBJC c
+perfSel1 obj msg arg = do ptr <- toId obj
+                          arg' <- toId arg
+                          res <- liftIO $ BS.useAsCString (BS8.pack msg) $ 
+                                    \cstr -> c_performMethod1 cstr ptr arg'
+                          fromId res
+
+{- Use this () versions to make the type system happy if you call methods 
+   with void return value.
+-}
+perfSel0' :: (OBJC a) => a -> String -> IOOBJC ()
+perfSel0' = perfSel0
+
+perfSel1' :: (OBJC a, OBJC b) => a -> String -> b -> IOOBJC ()
+perfSel1' = perfSel1
 
 
 whenKindOf :: (OBJC a) => String -> (Id -> IO a) -> Id -> IOOBJC a
@@ -125,18 +154,21 @@ whenKindOf className f ptr = do isKind <- liftIO $ isKindOfClass
 catchOBJC :: IOOBJC Id -> IO Id
 catchOBJC act = do eth <- runErrorT act
                    case eth of
-                      Left err -> do nsLog $ "(Haskell) OBJC error: " ++ err
+                      Left err -> do nsLog' $ "(Haskell) OBJC error: " ++ err
                                      return nullPtr
                       Right  y -> return y
 
 toCocoa :: (OBJC a, OBJC b) => (a -> b) -> Id -> IO Id
 toCocoa f anId = catchOBJC $ toId . f =<< fromId anId
 
-nsLog :: String -> IO ()
-nsLog x = do eth <- runErrorT $ toId (T.pack x)
-             case eth of
-               Left err -> return ()
-               Right x  -> c_NSLog x
+nsLog' :: String -> IO ()
+nsLog' x = do eth <- runErrorT $ toId (T.pack x)
+              case eth of
+                Left err -> return ()
+                Right x  -> c_NSLog x
+
+nsLog :: String -> IOOBJC ()
+nsLog = liftIO . nsLog'
 
 -- StableId, opaque data type for handling NSObjects
 newtype StableId = StableId {
@@ -151,7 +183,16 @@ instance OBJC StableId where
     fromId ptr = liftIO $ 
                  do x <- c_retainId ptr >>= newForeignPtr c_FunPtr_releaseId 
                     return $ StableId x
-                          
+
+-- Dummy instance for show, just to print something
+instance Show StableId where
+    show = const "StableId"                          
+
+-- Void/Nil 
+instance OBJC () where
+    fromId x = return ()
+    toId x = return nullPtr
+
 
 -- NSString handling
 instance OBJC BS.ByteString where
@@ -168,12 +209,6 @@ instance OBJC T.Text where
     toId = toId . encodeUtf8
     fromId x = return . decodeUtf8 =<< fromId x
 
-{-
-instance OBJC String where
-    -- via Text
-    toId = toId . T.pack
-    fromId x = return . T.unpack =<< fromId x
--}
 
 -- NSNumber handling
 instance OBJC Double where
@@ -190,7 +225,19 @@ instance OBJC Int where
     fromId = whenKindOf "NSNumber" $ 
                 liftM fromIntegral . c_longValue
 
-
+instance OBJC Bool where
+    toId = toId . fromBool
+        where 
+            fromBool :: Bool -> Int
+            fromBool True  = 1
+            fromBool False = 0
+  
+    fromId x = return . toBool =<< fromId x
+        where
+            toBool :: Int -> Bool
+            toBool 0 = False
+            toBool _ = True
+        
 
 -- NSArray handling
 instance (OBJC a) => OBJC [a] where
@@ -264,38 +311,67 @@ newtype StableValue a = StableValue {wrappedValue :: a}
 instance OBJC (StableValue a) where
     toId x = newHSValue "HSValue" x
              
-    fromId = whenKindOf "HSValue" $ 
-                \y -> deRefStablePtr =<< c_getStablePtr y
+    fromId = whenKindOf "HSValue" $ \y -> deRefStablePtr =<< c_getStablePtr y
 
                                  
 -- Functions
-instance (OBJC a, OBJC b) => OBJC (a -> IO b) where
+instance (OBJC a, OBJC b) => OBJC (a -> IOOBJC b) where
     toId f = newHSValue "HSFunc1" f'
         where 
-            f' :: Id -> IO Id
-            f' x' = catchOBJC $ toId =<< liftIO . f =<< fromId x'
+            f' :: Id -> IOOBJC Id
+            f' x' = toId =<< f =<< fromId x'
 
     fromId = undefined
 
-instance (OBJC a, OBJC b, OBJC c) => OBJC (a -> b -> IO c) where
+instance (OBJC a, OBJC b, OBJC c) => OBJC (a -> b -> IOOBJC c) where
     toId f = newHSValue "HSFunc2" f'
         where 
-            f' :: Id -> Id -> IO Id
-            f' x' y' = catchOBJC $ 
-                            do x <- fromId x'
-                               y <- fromId y'
-                               res <- liftIO $ f x y
-                               toId res
+            f' :: Id -> Id -> IOOBJC Id
+            f' x' y' = do x <- fromId x'
+                          y <- fromId y'
+                          res <- f x y
+                          toId res
 
     fromId = undefined
+    
 
-foreign export ccall callFunc1 :: (StablePtr (Id -> IO Id)) -> Id -> IO Id
-callFunc1 :: (StablePtr (Id -> IO Id)) -> Id -> IO Id
-callFunc1 fPtr arg = do f <- deRefStablePtr fPtr
-                        f arg
+callFunc1 :: (StablePtr (Id -> IOOBJC Id)) -> Id -> IO Id
+callFunc1 fPtr arg = catchOBJC $ 
+        do f <- liftIO $ deRefStablePtr fPtr
+           f arg
                         
-foreign export ccall callFunc2 :: (StablePtr (Id -> Id -> IO Id)) -> Id -> Id -> IO Id
-callFunc2 :: (StablePtr (Id -> Id -> IO Id)) -> Id -> Id -> IO Id
-callFunc2 fPtr arg1 arg2  = do f <- deRefStablePtr fPtr
-                               f arg1 arg2
-                        
+callFunc2 :: (StablePtr (Id -> Id -> IOOBJC Id)) -> Id -> Id -> IO Id
+callFunc2 fPtr arg1 arg2  = catchOBJC $ 
+        do f <- liftIO $ deRefStablePtr fPtr
+           f arg1 arg2
+
+
+toStblID :: (OBJC a) => a -> IOOBJC StableId
+toStblID f = fromId =<< toId f
+
+wrap1 :: (OBJC a, OBJC b) => (a -> b) -> IOOBJC StableId
+wrap1 f = wrapIO1 (return . f)
+    where 
+        wrapIO1 :: (OBJC a, OBJC b) => (a -> IOOBJC b) -> IOOBJC StableId
+        wrapIO1 f = fromId =<< toId f
+
+wrap2 :: (OBJC a, OBJC b, OBJC c) => (a -> b -> c) -> IOOBJC StableId
+wrap2 f = wrapIO2 $ \x y -> return $ f x y
+    where 
+        wrapIO2 :: (OBJC a, OBJC b, OBJC c) => (a -> b -> IOOBJC c) -> IOOBJC StableId
+        wrapIO2 f = fromId =<< toId f
+
+
+-- support for target/action
+
+makeTarget :: (OBJC a, OBJC b) => (a -> IOOBJC b) -> StableId -> IOOBJC ()
+makeTarget f sender = do f'      <- toId f
+                         sender' <- toId sender
+                         liftIO $ c_connectAsTarget sender' f'
+
+type OutletTable = M.Map T.Text StableId                     
+                     
+withOutlet :: (OBJC a) => OutletTable -> String -> (StableId -> IOOBJC a) -> IOOBJC a
+withOutlet outlets outletName f = case (T.pack outletName) `M.lookup` outlets of
+                                     Just x  -> f x
+                                     Nothing -> throwError $ "outlet " ++ outletName ++ " not found!"

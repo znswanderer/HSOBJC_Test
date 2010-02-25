@@ -36,6 +36,7 @@
     IBOutlet NSTextField *string_inputTextField;
     IBOutlet NSTextField *string_outputTextField;
     
+    IBOutlet NSSlider *numberSlider;
     IBOutlet NSTextField *number_doubleValue;
     IBOutlet NSTextField *number_integerValue;
     
@@ -45,16 +46,16 @@
     IBOutlet NSButton *storeArray_retrieveButton;
     IBOutlet NSTextField *storeArray_inputTextField;
     
+    IBOutlet NSButton *haskellTargetButton;
+    
     HSValue *storedArray;
     
 }
+- (NSDictionary*)ivarDictionary;
 
 - (IBAction)storeStableId:(id)sender;
 - (IBAction)retrieveStableId:(id)sender;
 
-- (IBAction)convertString:(id)sender;
-
-- (IBAction)newNumberFromSlider:(id)sender;
 
 - (IBAction)arrayInput:(id)sender;
 
