@@ -50,6 +50,7 @@
     
     HSValue *storedArray;
     
+    HSValue *controller;
 }
 - (NSDictionary*)ivarDictionary;
 

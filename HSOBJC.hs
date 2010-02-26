@@ -31,10 +31,11 @@ module HSObjC
      toCocoa,
      nsLog,
      freeStablePtr,
-     toStblID, wrap1, wrap2,
+     toStblId, wrap1, wrap2,
      OutletTable,
      withOutlet,
-     makeTarget
+     makeTarget,
+     setObjectValue, objectValue
     ) where
 
 import Foreign
@@ -346,8 +347,8 @@ callFunc2 fPtr arg1 arg2  = catchOBJC $
            f arg1 arg2
 
 
-toStblID :: (OBJC a) => a -> IOOBJC StableId
-toStblID f = fromId =<< toId f
+toStblId :: (OBJC a) => a -> IOOBJC StableId
+toStblId f = fromId =<< toId f
 
 wrap1 :: (OBJC a, OBJC b) => (a -> b) -> IOOBJC StableId
 wrap1 f = wrapIO1 (return . f)
@@ -375,3 +376,15 @@ withOutlet :: (OBJC a) => OutletTable -> String -> (StableId -> IOOBJC a) -> IOO
 withOutlet outlets outletName f = case (T.pack outletName) `M.lookup` outlets of
                                      Just x  -> f x
                                      Nothing -> throwError $ "outlet " ++ outletName ++ " not found!"
+
+
+
+
+-- Shortcuts for often used methods 
+
+setObjectValue :: (OBJC a) =>  a -> StableId -> IOOBJC ()
+setObjectValue val target = perfSel1' target "setObjectValue:" val
+
+objectValue :: (OBJC a) => StableId -> IOOBJC a
+objectValue target = perfSel0 target "objectValue"
+

@@ -1,5 +1,6 @@
 #import <Cocoa/Cocoa.h>
 #import "FFI.h"
+#import "HSObjC_C.h"
 
 id callFunc1(HsStablePtr func, id arg1)
 {
@@ -17,6 +18,16 @@ void freeStablePtr(HsStablePtr aStablePointer)
 }
 
 id initController(NSDictionary *ivars)
+{
+    return nil;
+}
+
+id getMethodNames(HSValue *controller)
+{
+    return nil;
+}
+
+id getMethod(HSValue *controller, NSString *methodName)
 {
     return nil;
 }

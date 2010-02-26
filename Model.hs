@@ -65,7 +65,7 @@ getFunctionList = catchOBJC $
 -- we have to wrap in order to get an array with strict types
 funcList = [ ("squareInt",       wrap1    ( (\x -> x ^ 2) :: (Int -> Int) )       )
            , ("doubleSqrt",      wrap1    ( sqrt          :: (Double -> Double) ) )
-           , ("uppercase2",      toStblID uppercase2                              )
+           , ("uppercase2",      toStblId uppercase2                              )
            , ("lengthOfStrings", wrap1    lengthOfStrings                         )
            ]
 

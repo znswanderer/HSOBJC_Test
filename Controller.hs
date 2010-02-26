@@ -18,6 +18,7 @@
 
 import Control.Monad
 import Control.Monad.Error
+import Control.Arrow (first)
 
 import Foreign
 import Foreign.C.Types
@@ -35,6 +36,8 @@ import Model
 
 -- The function will be called by the ObjC Controller Proxy
 foreign export ccall initController :: Id -> IO Id
+foreign export ccall getMethodNames :: Id -> IO Id
+foreign export ccall getMethod      :: Id -> Id -> IO Id
 
 
 -- Start the mainloop!
@@ -43,53 +46,89 @@ main = c_NSApplicationMain 0 nullPtr
 ---
 
 data Controller = Controller { 
-                    ctrOutlets :: OutletTable
-                  } deriving (Show)
+                    ctrOutlets :: OutletTable,
+                    ctrMethods :: MethodTable
+                  }
 
 initController :: Id -> IO Id
 initController ptr =  catchOBJC $ 
     do outlets <- fromId ptr
-       let contrl = Controller outlets
-       
-       contrl `connectOutlets` outlets
+       let contrl = Controller outlets methods
+       connectOutlets contrl
        toId $ StableValue contrl
-                           
+ 
+ 
+getMethodNames :: Id -> IO Id
+getMethodNames contrl = catchOBJC $
+    do contrl' <- (return . wrappedValue) =<< fromId contrl
+       toId $ M.keys (ctrMethods contrl')
 
-connectOutlets :: Controller -> OutletTable -> IOOBJC ()
-connectOutlets contrl outlets = 
-    do connect "haskellTargetButton" sayHello
-       connect "string_inputTextField" convertString
-       connect "numberSlider" presentNumbers
+       
+getMethod :: Id -> Id -> IO Id       
+getMethod contrl mName = catchOBJC $
+    do contrl' <- (return . wrappedValue) =<< fromId contrl
+       mName' <- fromId mName
+       case M.lookup mName' (ctrMethods contrl') of
+           Nothing  -> throwError $ "Method " ++ (show mName') ++ " not defined."
+           Just act -> toId =<< act contrl'
+
+
+connectOutlets :: Controller -> IOOBJC ()
+connectOutlets contrl = 
+    do "haskellTargetButton"   `connect` sayHello
+       "string_inputTextField" `connect` convertString
+       "numberSlider"          `connect` presentNumbers
 
   where 
-    outlet :: (OBJC a) => String -> (StableId -> IOOBJC a) -> IOOBJC a
-    outlet oName f = withOutlet outlets oName f
-
-    connect :: (OBJC a, OBJC b) => String -> (a -> IOOBJC b) -> IOOBJC ()
-    connect senderName f = outlet senderName $ \x -> makeTarget f x
-
-    setObjectValue :: (OBJC a) =>  a -> StableId -> IOOBJC ()
-    setObjectValue val target = perfSel1' target "setObjectValue:" val
+    outlet :: String -> IOOBJC StableId
+    outlet oName = case (T.pack oName) `M.lookup` (ctrOutlets contrl) of
+                      Just x  -> return x
+                      Nothing -> throwError $ "Could not find outlet named " ++ oName
     
+    connect :: (OBJC a, OBJC b) => String -> (a -> IOOBJC b) -> IOOBJC ()
+    connect senderName f = outlet senderName >>= makeTarget f 
+
     {- Target actions for NSControllers
        
        - Cocoa actions never return a value, therefore they return type IOOBJC ().
-       - The controller and outlets are available via closures.
+       - Controller is available via closures.
     -}
     sayHello :: StableId -> IOOBJC ()
-    sayHello sender = do nsLog $ "Hello from Controller: " ++ show contrl
+    sayHello sender = do nsLog $ "Hello from Controller: " ++ show (ctrOutlets contrl)
 
     convertString :: StableId -> IOOBJC ()
     convertString sender = 
-        do s <- sender `perfSel0` "stringValue"
+        do s <- objectValue sender
            nsLog $ "stringValue: " ++ (show s)
-           outlet "string_outputTextField" $ setObjectValue (T.toUpper s)
+           outlet "string_outputTextField" >>= setObjectValue (T.toUpper s)
 
     presentNumbers :: StableId -> IOOBJC ()
     presentNumbers sender =
-        do val <- sender `perfSel0` "objectValue"     -- luckily "objectValue" delivers a NSNumber!
+        do val <- objectValue sender     -- luckily "objectValue" delivers a NSNumber!
            let x = val :: Double
            let y = (round x) :: Int
-           outlet "number_doubleValue" $ setObjectValue (sqrt x)
-           outlet "number_integerValue" $ setObjectValue (y^2)
+           outlet "number_doubleValue" >>= setObjectValue (sqrt x)
+           outlet "number_integerValue" >>= setObjectValue (y^2)
            
+
+
+-- "Methods"
+type MethodTable = M.Map T.Text (Controller -> IOOBJC StableId)
+
+methods :: MethodTable
+methods =  M.fromList $ map ( first T.pack )  methodTable
+    where     
+        methodTable = [ 
+                        ("lengthOfStrings", mkMethod lengthOfStrings)
+                      ] 
+
+        mkMethod :: (OBJC a) => (Controller -> a) -> (Controller -> IOOBJC StableId)
+        mkMethod action = \contrl -> toStblId $ action contrl
+        
+        
+
+lengthOfStrings :: Controller -> [T.Text] -> IOOBJC [(Int, T.Text)]
+lengthOfStrings contrl = return . lengthOfStrings'
+    where
+        lengthOfStrings' :: [T.Text] -> [(Int, T.Text)]
+        lengthOfStrings' = map $ \x -> (T.length x, x)

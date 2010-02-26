@@ -19,6 +19,9 @@
 #import "HSObjC_C.h"
 
 id initController(NSDictionary *ivars);
+id getMethodNames(HSValue *controller);
+id getMethod(HSValue *controller, NSString *methodName);
+
 
 void freeStablePtr(HsStablePtr aStablePointer);
 
@@ -37,10 +40,11 @@ id getFunctionList(void);
     NSDictionary *ivars = [self ivarDictionary];
     NSLog(@"ivars: %@", ivars);
     
-    HSValue *controller = initController(ivars);
+    controller = initController(ivars);
     [controller retain];
-    NSLog(@"controller: %@", controller);
     
+    NSLog(@"controller: %@", controller);
+    NSLog(@"methods: %@", getMethodNames(controller));
     
     
     NSLog(@"registering functions");
@@ -74,6 +78,8 @@ id getFunctionList(void);
     free(list);
     return [ivarDict autorelease];
 }
+
+
 
 // StableId test
 
@@ -116,7 +122,7 @@ id getFunctionList(void);
 {
     NSArray *inputArray = [[(NSTextField*)sender stringValue] componentsSeparatedByString:@", "];
     
-    NSArray *results = [lengthOfStrings callWithArg:inputArray];
+    NSArray *results = [getMethod(controller, @"lengthOfStrings") callWithArg:inputArray];
     [array_stringResults setStringValue:[results description]];
 }
 
