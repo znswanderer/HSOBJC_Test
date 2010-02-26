@@ -47,13 +47,16 @@ main = c_NSApplicationMain 0 nullPtr
 
 data Controller = Controller { 
                     ctrOutlets :: OutletTable,
-                    ctrMethods :: MethodTable
+                    ctrMethods :: MethodTable,
+                    
+                    ctrModel   :: Model
                   }
 
 initController :: Id -> IO Id
 initController ptr =  catchOBJC $ 
     do outlets <- fromId ptr
-       let contrl = Controller outlets methods
+       model <- liftIO $ newModel
+       let contrl = Controller outlets methods model
        connectOutlets contrl
        toId $ StableValue contrl
  
@@ -75,9 +78,13 @@ getMethod contrl mName = catchOBJC $
 
 connectOutlets :: Controller -> IOOBJC ()
 connectOutlets contrl = 
-    do "haskellTargetButton"   `connect` sayHello
-       "string_inputTextField" `connect` convertString
-       "numberSlider"          `connect` presentNumbers
+    do "haskellTargetButton"       `connect` sayHello
+       "string_inputTextField"     `connect` convertString
+       "numberSlider"              `connect` presentNumbers
+       "stableId_inputTextField"   `connect` storeSimpleName
+       "stableId_retrieveButton"   `connect` retrieveSimpleName
+       "storeArray_inputTextField" `connect` makeStringAnswer
+       "storeArray_retrieveButton" `connect` retrieveStringAnswer
 
   where 
     outlet :: String -> IOOBJC StableId
@@ -110,8 +117,39 @@ connectOutlets contrl =
            outlet "number_doubleValue" >>= setObjectValue (sqrt x)
            outlet "number_integerValue" >>= setObjectValue (y^2)
            
-
-
+    storeSimpleName :: StableId -> IOOBJC ()
+    storeSimpleName sender =
+        do val <- objectValue sender
+           liftIO $ (ctrModel contrl) `setSimpleName` val
+           -- Enabling/Disabling view elements
+           outlet "stableId_retrieveButton" >>= setEnabled True
+           setEnabled False sender
+           
+    retrieveSimpleName :: StableId -> IOOBJC ()
+    retrieveSimpleName sender =
+        do val <- liftIO $ getSimpleName (ctrModel contrl)
+           outlet "stableID_outputTextField" >>= setObjectValue val
+           -- Enabling/Disabling view elements
+           setEnabled False sender
+           outlet "stableId_inputTextField" >>= setEnabled True
+           
+    makeStringAnswer :: StableId -> IOOBJC ()
+    makeStringAnswer sender =
+        do val <- objectValue sender
+           liftIO $ (ctrModel contrl) `workString` val
+           -- Enabling/Disabling view elements
+           setEnabled False sender
+           outlet "storeArray_retrieveButton" >>= setEnabled True
+           
+    retrieveStringAnswer :: StableId -> IOOBJC ()
+    retrieveStringAnswer sender =
+        do val <- liftIO $ stringAnswer (ctrModel contrl)
+           outlet "storeArray_stringResults" >>= setObjectValue val
+           -- Enabling/Disabling view elements
+           setEnabled False sender
+           outlet "storeArray_inputTextField" >>= setEnabled True
+           
+            
 -- "Methods"
 type MethodTable = M.Map T.Text (Controller -> IOOBJC StableId)
 

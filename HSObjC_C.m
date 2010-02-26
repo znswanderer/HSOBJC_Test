@@ -59,7 +59,16 @@ int isKindOf(id object, const char *name)
     
 }
 
+// Key-value coding
+id getValueForKey(id object, NSString *key)
+{
+    return [object valueForKey:key];
+}
 
+void setValueForKey(id object, NSString *key, id value)
+{
+    [object setValue:value forKey:key];
+}
 
 // NSString conversion
 

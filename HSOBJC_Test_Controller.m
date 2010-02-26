@@ -15,23 +15,12 @@
 // ================================================================
 
 #import "HSOBJC_Test_Controller.h"
-#import "DummyNSString.h"
 #import "HSObjC_C.h"
 
 id initController(NSDictionary *ivars);
 id getMethodNames(HSValue *controller);
 id getMethod(HSValue *controller, NSString *methodName);
 
-
-void freeStablePtr(HsStablePtr aStablePointer);
-
-HsStablePtr newStableIdContainer(id someObject);
-id retrieveId(HsStablePtr aStablePointer);
-
-HSValue *newStoredArray(id someObject);
-id retrieveStoredArray(HSValue *aValue);
-
-id getFunctionList(void);
 
 @implementation HSOBJC_Test_Controller
 
@@ -46,19 +35,6 @@ id getFunctionList(void);
     NSLog(@"controller: %@", controller);
     NSLog(@"methods: %@", getMethodNames(controller));
     
-    
-    NSLog(@"registering functions");
-    
-    funcList = [getFunctionList() retain];
-    NSLog(@"funclist: %@", funcList);
-
-    // shortcuts
-    doubleSqrt = [funcList objectForKey:@"doubleSqrt"];
-    lengthOfStrings = [funcList objectForKey:@"lengthOfStrings"];
-    squareInt = [funcList objectForKey:@"squareInt"];
-    uppercase2 = [funcList objectForKey:@"uppercase2"];
-        
-     
 }
 
 - (NSDictionary*)ivarDictionary;
@@ -80,43 +56,6 @@ id getFunctionList(void);
 }
 
 
-
-// StableId test
-
-- (IBAction)storeStableId:(id)sender;
-{
-    DummyNSString *dummyString = [[DummyNSString alloc] init];
-    [dummyString setStringValue:[stableId_inputTextField stringValue]];
-    
-    stableId_stableIdContainer = newStableIdContainer(dummyString);
-    [dummyString release];
-    
-    [stableId_retrieveButton setEnabled:YES];
-
-    
-    //[stableId_inputTextField setEnabled:NO];
-    NSLog(@"valeForKey: %@", [stableId_inputTextField valueForKey:@"enabled"]);
-    [stableId_inputTextField setValue:[NSNumber numberWithBool:NO] forKey:@"enabled"];
-    NSLog(@"valeForKey: %@", [stableId_inputTextField valueForKey:@"enabled"]);
-    
-}
-
-- (IBAction)retrieveStableId:(id)sender;
-{
-    DummyNSString *dummyString = (DummyNSString*)retrieveId(stableId_stableIdContainer);
-    [stableID_outputTextField setStringValue:[dummyString stringValue]];
-    
-    [stableId_retrieveButton setEnabled:NO];
-    [stableId_inputTextField setEnabled:YES];
-    [stableId_inputTextField selectText:self];
-
-    freeStablePtr(stableId_stableIdContainer);   
-    stableId_stableIdContainer = NULL;
-}
-
-
-
-
 // NSArray test
 - (IBAction)arrayInput:(id)sender;
 {
@@ -126,37 +65,11 @@ id getFunctionList(void);
     [array_stringResults setStringValue:[results description]];
 }
 
-// Stored Array test
-- (IBAction)storeArray:(id)sender;
-{
-    NSArray *inputArray = [[(NSTextField*)sender stringValue] componentsSeparatedByString:@", "];
-    
-    storedArray = newStoredArray(inputArray);
-    [storedArray retain];
-    
-    [storeArray_retrieveButton setEnabled:YES];
-    [storeArray_inputTextField setEnabled:NO];
-
-}
-
-- (IBAction)retrieveStoredArray:(id)sender;
-{
-    NSArray *result = (NSArray*)retrieveStoredArray(storedArray);
-    [storeArray_stringResults setStringValue:[result description]];
-        
-    [storeArray_retrieveButton setEnabled:NO];
-    [storeArray_inputTextField setEnabled:YES];
-    [storeArray_inputTextField selectText:self];
-
-    //freeStablePtr(storedArray);
-    [storedArray release];
-    storedArray = nil;
-}
 
 // Error test
 - (IBAction)constellation:(id)sender;
 {
-    [uppercase2 callWithArg:nil];
+    [getMethod(controller, @"lengthOfStrings") callWithArg:[NSArray arrayWithObject:[NSNumber numberWithInt:0]]];
 }
 
 @end

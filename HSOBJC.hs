@@ -31,11 +31,12 @@ module HSObjC
      toCocoa,
      nsLog,
      freeStablePtr,
-     toStblId, wrap1, wrap2,
+     toStblId, 
      OutletTable,
      withOutlet,
      makeTarget,
-     setObjectValue, objectValue
+     setObjectValue, objectValue,
+     setEnabled
     ) where
 
 import Foreign
@@ -83,6 +84,8 @@ foreign import ccall unsafe "HSObjC_C.h hsValue_getStablePtr" c_getStablePtr :: 
 
 foreign import ccall unsafe "HSObjC_C.h connectAsTarget"  c_connectAsTarget  :: Id -> Id -> IO ()
 
+foreign import ccall unsafe "HSObjC_C.h getValueForKey"   c_getValueForKey   :: Id -> Id -> IO Id
+foreign import ccall unsafe "HSObjC_C.h setValueForKey"   c_setValueForKey   :: Id -> Id -> Id -> IO ()
 
 
 {- These functions are imported "safe", because they might call back into the Haskell
@@ -350,17 +353,6 @@ callFunc2 fPtr arg1 arg2  = catchOBJC $
 toStblId :: (OBJC a) => a -> IOOBJC StableId
 toStblId f = fromId =<< toId f
 
-wrap1 :: (OBJC a, OBJC b) => (a -> b) -> IOOBJC StableId
-wrap1 f = wrapIO1 (return . f)
-    where 
-        wrapIO1 :: (OBJC a, OBJC b) => (a -> IOOBJC b) -> IOOBJC StableId
-        wrapIO1 f = fromId =<< toId f
-
-wrap2 :: (OBJC a, OBJC b, OBJC c) => (a -> b -> c) -> IOOBJC StableId
-wrap2 f = wrapIO2 $ \x y -> return $ f x y
-    where 
-        wrapIO2 :: (OBJC a, OBJC b, OBJC c) => (a -> b -> IOOBJC c) -> IOOBJC StableId
-        wrapIO2 f = fromId =<< toId f
 
 
 -- support for target/action
@@ -388,3 +380,8 @@ setObjectValue val target = perfSel1' target "setObjectValue:" val
 objectValue :: (OBJC a) => StableId -> IOOBJC a
 objectValue target = perfSel0 target "objectValue"
 
+setEnabled :: (OBJC a) => a -> StableId -> IOOBJC ()
+setEnabled val target = do val' <- toId val
+                           target' <- toId target
+                           key' <- toId $ T.pack "enabled"
+                           liftIO $ c_setValueForKey target' key' val'

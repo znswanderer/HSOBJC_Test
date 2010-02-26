@@ -35,6 +35,8 @@ id performMethod0(const char* methodName, id object);
 id performMethod1(const char* methodName, id object, id arg1);
 int isKindOf(id object, const char *name);
 
+id getValueForKey(id object, NSString *key);
+void setValueForKey(id object, NSString *key, id value);
 
 
 NSString *utf8ToNSString(const char* cstr);

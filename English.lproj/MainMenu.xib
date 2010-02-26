@@ -2865,22 +2865,6 @@
 					<int key="connectionID">577</int>
 				</object>
 				<object class="IBConnectionRecord">
-					<object class="IBActionConnection" key="connection">
-						<string key="label">retrieveStableId:</string>
-						<reference key="source" ref="179575461"/>
-						<reference key="destination" ref="752185817"/>
-					</object>
-					<int key="connectionID">578</int>
-				</object>
-				<object class="IBConnectionRecord">
-					<object class="IBActionConnection" key="connection">
-						<string key="label">storeStableId:</string>
-						<reference key="source" ref="179575461"/>
-						<reference key="destination" ref="127097438"/>
-					</object>
-					<int key="connectionID">579</int>
-				</object>
-				<object class="IBConnectionRecord">
 					<object class="IBOutletConnection" key="connection">
 						<string key="label">string_inputTextField</string>
 						<reference key="source" ref="179575461"/>
@@ -2937,14 +2921,6 @@
 					<int key="connectionID">678</int>
 				</object>
 				<object class="IBConnectionRecord">
-					<object class="IBActionConnection" key="connection">
-						<string key="label">storeArray:</string>
-						<reference key="source" ref="179575461"/>
-						<reference key="destination" ref="813272319"/>
-					</object>
-					<int key="connectionID">679</int>
-				</object>
-				<object class="IBConnectionRecord">
 					<object class="IBOutletConnection" key="connection">
 						<string key="label">storeArray_retrieveButton</string>
 						<reference key="source" ref="179575461"/>
@@ -2959,14 +2935,6 @@
 						<reference key="destination" ref="813272319"/>
 					</object>
 					<int key="connectionID">681</int>
-				</object>
-				<object class="IBConnectionRecord">
-					<object class="IBActionConnection" key="connection">
-						<string key="label">retrieveStoredArray:</string>
-						<reference key="source" ref="179575461"/>
-						<reference key="destination" ref="450694450"/>
-					</object>
-					<int key="connectionID">682</int>
 				</object>
 				<object class="IBConnectionRecord">
 					<object class="IBActionConnection" key="connection">
@@ -5275,17 +5243,9 @@
 							<bool key="EncodedWithXMLCoder">YES</bool>
 							<string>arrayInput:</string>
 							<string>constellation:</string>
-							<string>retrieveStableId:</string>
-							<string>retrieveStoredArray:</string>
-							<string>storeArray:</string>
-							<string>storeStableId:</string>
 						</object>
 						<object class="NSMutableArray" key="dict.values">
 							<bool key="EncodedWithXMLCoder">YES</bool>
-							<string>id</string>
-							<string>id</string>
-							<string>id</string>
-							<string>id</string>
 							<string>id</string>
 							<string>id</string>
 						</object>

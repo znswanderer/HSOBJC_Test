@@ -15,23 +15,14 @@
 // ================================================================
 
 #import <Cocoa/Cocoa.h>
-#import "FFI.h"
 #import "HSObjC_C.h"
 
 
 @interface HSOBJC_Test_Controller : NSObject {
-    NSDictionary *funcList;
-    
-    HSFunc1 *doubleSqrt;
-    HSFunc1 *lengthOfStrings;
-    HSFunc1 *squareInt;
-    HSFunc1 *uppercase2;
     
     IBOutlet NSTextField *stableId_inputTextField;
     IBOutlet NSTextField *stableID_outputTextField;    
     IBOutlet NSButton *stableId_retrieveButton;
-    
-    HsStablePtr *stableId_stableIdContainer;
     
     IBOutlet NSTextField *string_inputTextField;
     IBOutlet NSTextField *string_outputTextField;
@@ -48,21 +39,11 @@
     
     IBOutlet NSButton *haskellTargetButton;
     
-    HSValue *storedArray;
-    
     HSValue *controller;
 }
+
 - (NSDictionary*)ivarDictionary;
-
-- (IBAction)storeStableId:(id)sender;
-- (IBAction)retrieveStableId:(id)sender;
-
-
 - (IBAction)arrayInput:(id)sender;
-
-- (IBAction)storeArray:(id)sender;
-- (IBAction)retrieveStoredArray:(id)sender;
-
 - (IBAction)constellation:(id)sender;
 
 @end
