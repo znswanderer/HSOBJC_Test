@@ -19,7 +19,8 @@ module Model
     (
     Model, newModel,
     getSimpleName, setSimpleName,
-    Answer, workString, stringAnswer
+    Answer, workString, stringAnswer,
+    lengthOfStrings
     )
 where 
 
@@ -44,19 +45,19 @@ newModel = do text <- newIORef $ T.pack ""
 getSimpleName :: Model -> IO T.Text
 getSimpleName mdl = readIORef (mdSimpleName mdl)
 
-setSimpleName :: Model -> T.Text -> IO ()
-setSimpleName mdl text = writeIORef (mdSimpleName mdl) text
+setSimpleName :: T.Text -> Model -> IO ()
+setSimpleName text mdl = writeIORef (mdSimpleName mdl) text
 
-workString :: Model -> T.Text -> IO ()
-workString mdl input = writeIORef (mdStringsLength mdl) (lengthOfStrings parts) 
-                      
+workString :: T.Text -> Model -> IO ()
+workString input mdl = writeIORef (mdStringsLength mdl) (lengthOfStrings parts) 
     where
         parts = T.split (T.pack ", ") input
-        
-        lengthOfStrings :: [T.Text] -> Answer
-        lengthOfStrings = map $ \x -> (T.length x, x)
         
 
 stringAnswer :: Model -> IO Answer
 stringAnswer mdl = readIORef (mdStringsLength mdl)
+
+
+lengthOfStrings :: [T.Text] -> Answer
+lengthOfStrings = map $ \x -> (T.length x, x)
 

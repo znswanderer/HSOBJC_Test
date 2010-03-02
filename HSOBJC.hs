@@ -27,16 +27,15 @@ module HSObjC
      OBJC(..),
      perfSel0, perfSel0',
      perfSel1, perfSel1',
-     catchOBJC,
+     catchOBJC, runId,
      toCocoa,
      nsLog,
      freeStablePtr,
-     toStblId, 
-     OutletTable,
-     withOutlet,
-     makeTarget,
+     toStableId, 
+     makeTarget, Action,
      setObjectValue, objectValue,
-     setEnabled
+     setEnabled,
+     (#)
     ) where
 
 import Foreign
@@ -84,6 +83,7 @@ foreign import ccall unsafe "HSObjC_C.h hsValue_getStablePtr" c_getStablePtr :: 
 
 foreign import ccall unsafe "HSObjC_C.h connectAsTarget"  c_connectAsTarget  :: Id -> Id -> IO ()
 
+-- key/value coding
 foreign import ccall unsafe "HSObjC_C.h getValueForKey"   c_getValueForKey   :: Id -> Id -> IO Id
 foreign import ccall unsafe "HSObjC_C.h setValueForKey"   c_setValueForKey   :: Id -> Id -> Id -> IO ()
 
@@ -161,6 +161,9 @@ catchOBJC act = do eth <- runErrorT act
                       Left err -> do nsLog' $ "(Haskell) OBJC error: " ++ err
                                      return nullPtr
                       Right  y -> return y
+                      
+runId :: (OBJC a) => IOOBJC a -> IO Id
+runId act = catchOBJC $ toId =<< act 
 
 toCocoa :: (OBJC a, OBJC b) => (a -> b) -> Id -> IO Id
 toCocoa f anId = catchOBJC $ toId . f =<< fromId anId
@@ -268,14 +271,14 @@ instance (OBJC a) => OBJC [a] where
 instance (OBJC a, OBJC b) => OBJC (a, b) where
     -- via list and StableId
     toId (a, b) = do -- wrap arguments into opaque StableId, so that we can use them in a list
-                     aStId <- fromId =<< toId a :: IOOBJC StableId
-                     bStId <- fromId =<< toId b :: IOOBJC StableId
+                     aStId <- toStableId a 
+                     bStId <- toStableId b
                      toId [aStId, bStId]
                      
     fromId x = do ys <- fromId x :: IOOBJC [StableId]
                   case ys of
-                      (aStId:bStId:[]) -> do a <- fromId =<< toId aStId
-                                             b <- fromId =<< toId bStId
+                      (aStId:bStId:[]) -> do a <- toOBJC aStId
+                                             b <- toOBJC bStId
                                              return (a, b)
                       otherwise        -> throwError "Wrong number of arguments for (,)"
 
@@ -298,10 +301,9 @@ instance (OBJC k, Ord k, OBJC a) => OBJC (Map k a) where
                       Do we have to make the way via [(StableId, StableId)] ?
                       -}
                       else do ys <- fromId nsarray :: IOOBJC [(StableId, StableId)]
-                              keys <- mapM (\x -> fromId =<< toId x) $ map fst ys
-                              vals <- mapM (\x -> fromId =<< toId x) $ map snd ys
+                              keys <- mapM (toOBJC . fst) ys
+                              vals <- mapM (toOBJC . snd) ys
                               return $ M.fromList $ zip keys vals
-                              
 
 -- HSValues
 newHSValue :: String -> a -> IOOBJC Id
@@ -350,27 +352,27 @@ callFunc2 fPtr arg1 arg2  = catchOBJC $
            f arg1 arg2
 
 
-toStblId :: (OBJC a) => a -> IOOBJC StableId
-toStblId f = fromId =<< toId f
+toOBJC :: (OBJC a, OBJC b) => a -> IOOBJC b
+toOBJC x = fromId =<< toId x
+
+toStableId :: (OBJC a) => a -> IOOBJC StableId
+toStableId = toOBJC
 
 
 
 -- support for target/action
 
-makeTarget :: (OBJC a, OBJC b) => (a -> IOOBJC b) -> StableId -> IOOBJC ()
+-- Cocoa actions never return a value, therefore they return type IOOBJC ().
+-- StableId is the sender of the action.
+type Action = StableId -> IOOBJC ()
+
+makeTarget :: Action -> StableId -> IOOBJC ()
 makeTarget f sender = do f'      <- toId f
                          sender' <- toId sender
                          liftIO $ c_connectAsTarget sender' f'
 
-type OutletTable = M.Map T.Text StableId                     
-                     
-withOutlet :: (OBJC a) => OutletTable -> String -> (StableId -> IOOBJC a) -> IOOBJC a
-withOutlet outlets outletName f = case (T.pack outletName) `M.lookup` outlets of
-                                     Just x  -> f x
-                                     Nothing -> throwError $ "outlet " ++ outletName ++ " not found!"
-
-
-
+-- from HOC
+x # f = f x                     
 
 -- Shortcuts for often used methods 
 

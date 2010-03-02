@@ -17,24 +17,13 @@
 #import "HSOBJC_Test_Controller.h"
 #import "HSObjC_C.h"
 
-id initController(NSDictionary *ivars);
-id getMethodNames(HSValue *controller);
-id getMethod(HSValue *controller, NSString *methodName);
-
 
 @implementation HSOBJC_Test_Controller
 
 - (void)awakeFromNib
 {
-    NSDictionary *ivars = [self ivarDictionary];
-    NSLog(@"ivars: %@", ivars);
-    
-    controller = initController(ivars);
+    controller = initController([self ivarDictionary]);
     [controller retain];
-    
-    NSLog(@"controller: %@", controller);
-    NSLog(@"methods: %@", getMethodNames(controller));
-    
 }
 
 - (NSDictionary*)ivarDictionary;

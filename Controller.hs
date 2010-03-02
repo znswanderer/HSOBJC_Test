@@ -15,6 +15,14 @@
 --  See the License for the specific language governing permissions and
 --  limitations under the License.
 --  ================================================================ 
+module Controller
+    (
+    Controller,
+    initController, 
+    getMethodNames,
+    getMethod
+    )
+where 
 
 import Control.Monad
 import Control.Monad.Error
@@ -40,10 +48,9 @@ foreign export ccall getMethodNames :: Id -> IO Id
 foreign export ccall getMethod      :: Id -> Id -> IO Id
 
 
--- Start the mainloop!
-main = c_NSApplicationMain 0 nullPtr
 
 ---
+type OutletTable = M.Map T.Text StableId                     
 
 data Controller = Controller { 
                     ctrOutlets :: OutletTable,
@@ -53,28 +60,29 @@ data Controller = Controller {
                   }
 
 initController :: Id -> IO Id
-initController ptr =  catchOBJC $ 
-    do outlets <- fromId ptr
+initController outletsId = runId $ 
+    do outlets <- fromId outletsId
        model <- liftIO $ newModel
+
        let contrl = Controller outlets methods model
+
        connectOutlets contrl
-       toId $ StableValue contrl
+       return $ StableValue contrl
  
  
 getMethodNames :: Id -> IO Id
-getMethodNames contrl = catchOBJC $
+getMethodNames contrl = runId $
     do contrl' <- (return . wrappedValue) =<< fromId contrl
-       toId $ M.keys (ctrMethods contrl')
+       return $ M.keys (ctrMethods contrl')
 
        
 getMethod :: Id -> Id -> IO Id       
-getMethod contrl mName = catchOBJC $
+getMethod contrl mName = runId $
     do contrl' <- (return . wrappedValue) =<< fromId contrl
        mName' <- fromId mName
        case M.lookup mName' (ctrMethods contrl') of
            Nothing  -> throwError $ "Method " ++ (show mName') ++ " not defined."
-           Just act -> toId =<< act contrl'
-
+           Just act -> act contrl'
 
 connectOutlets :: Controller -> IOOBJC ()
 connectOutlets contrl = 
@@ -87,67 +95,74 @@ connectOutlets contrl =
        "storeArray_retrieveButton" `connect` retrieveStringAnswer
 
   where 
-    outlet :: String -> IOOBJC StableId
-    outlet oName = case (T.pack oName) `M.lookup` (ctrOutlets contrl) of
-                      Just x  -> return x
-                      Nothing -> throwError $ "Could not find outlet named " ++ oName
-    
-    connect :: (OBJC a, OBJC b) => String -> (a -> IOOBJC b) -> IOOBJC ()
-    connect senderName f = outlet senderName >>= makeTarget f 
-
     {- Target actions for NSControllers
        
-       - Cocoa actions never return a value, therefore they return type IOOBJC ().
-       - Controller is available via closures.
+       Controller is available via closures.
     -}
-    sayHello :: StableId -> IOOBJC ()
-    sayHello sender = do nsLog $ "Hello from Controller: " ++ show (ctrOutlets contrl)
+    sayHello :: Action
+    sayHello sender = 
+        do nsLog $ "Hello from Controller: " ++ show (ctrOutlets contrl)
 
-    convertString :: StableId -> IOOBJC ()
+    convertString :: Action
     convertString sender = 
-        do s <- objectValue sender
+        do s <- sender # objectValue
            nsLog $ "stringValue: " ++ (show s)
            outlet "string_outputTextField" >>= setObjectValue (T.toUpper s)
 
-    presentNumbers :: StableId -> IOOBJC ()
+    presentNumbers :: Action
     presentNumbers sender =
-        do val <- objectValue sender     -- luckily "objectValue" delivers a NSNumber!
-           let x = val :: Double
-           let y = (round x) :: Int
-           outlet "number_doubleValue" >>= setObjectValue (sqrt x)
-           outlet "number_integerValue" >>= setObjectValue (y^2)
+        do val <- sender # objectValue     -- luckily "objectValue" delivers a NSNumber!
+           let x = sqrt val       :: Double
+           let y = (round val)^2  :: Int
+           outlet "number_doubleValue"  >>= setObjectValue x
+           outlet "number_integerValue" >>= setObjectValue y
            
-    storeSimpleName :: StableId -> IOOBJC ()
+    storeSimpleName :: Action
     storeSimpleName sender =
-        do val <- objectValue sender
-           liftIO $ (ctrModel contrl) `setSimpleName` val
-           -- Enabling/Disabling view elements
+        do val <- sender # objectValue
+           model $ setSimpleName val
+
            outlet "stableId_retrieveButton" >>= setEnabled True
-           setEnabled False sender
+           sender # setEnabled False
            
-    retrieveSimpleName :: StableId -> IOOBJC ()
+    retrieveSimpleName :: Action
     retrieveSimpleName sender =
-        do val <- liftIO $ getSimpleName (ctrModel contrl)
+        do val <- model getSimpleName
            outlet "stableID_outputTextField" >>= setObjectValue val
-           -- Enabling/Disabling view elements
-           setEnabled False sender
+
+           sender # setEnabled False
            outlet "stableId_inputTextField" >>= setEnabled True
            
-    makeStringAnswer :: StableId -> IOOBJC ()
+    makeStringAnswer :: Action
     makeStringAnswer sender =
-        do val <- objectValue sender
-           liftIO $ (ctrModel contrl) `workString` val
-           -- Enabling/Disabling view elements
-           setEnabled False sender
+        do val <- sender # objectValue
+           model $ workString val
+
+           sender # setEnabled False
            outlet "storeArray_retrieveButton" >>= setEnabled True
            
-    retrieveStringAnswer :: StableId -> IOOBJC ()
+    retrieveStringAnswer :: Action
     retrieveStringAnswer sender =
-        do val <- liftIO $ stringAnswer (ctrModel contrl)
+        do val <- model stringAnswer
            outlet "storeArray_stringResults" >>= setObjectValue val
-           -- Enabling/Disabling view elements
-           setEnabled False sender
+
+           sender # setEnabled False
            outlet "storeArray_inputTextField" >>= setEnabled True
+
+
+    -- ------------------------------------------
+    -- Helper
+    outlet :: String -> IOOBJC StableId
+    outlet oName = case (T.pack oName) `M.lookup` (ctrOutlets contrl) of
+                     Just x  -> return x
+                     Nothing -> throwError $ "Could not find outlet named " ++ oName
+
+    model :: (Model -> IO a) -> IOOBJC a
+    model f = liftIO $ f (ctrModel contrl)
+
+    connect :: String -> Action -> IOOBJC ()
+    connect outletName f = outlet outletName >>= makeTarget f 
+
            
             
 -- "Methods"
@@ -157,16 +172,10 @@ methods :: MethodTable
 methods =  M.fromList $ map ( first T.pack )  methodTable
     where     
         methodTable = [ 
-                        ("lengthOfStrings", mkMethod lengthOfStrings)
+                        ("lengthOfStrings", mkMethod lengthOfStrings')
                       ] 
 
         mkMethod :: (OBJC a) => (Controller -> a) -> (Controller -> IOOBJC StableId)
-        mkMethod action = \contrl -> toStblId $ action contrl
+        mkMethod action = \contrl -> toStableId $ action contrl
         
-        
-
-lengthOfStrings :: Controller -> [T.Text] -> IOOBJC [(Int, T.Text)]
-lengthOfStrings contrl = return . lengthOfStrings'
-    where
-        lengthOfStrings' :: [T.Text] -> [(Int, T.Text)]
-        lengthOfStrings' = map $ \x -> (T.length x, x)
+        lengthOfStrings' contrl = (return :: a -> IOOBJC a) . lengthOfStrings 

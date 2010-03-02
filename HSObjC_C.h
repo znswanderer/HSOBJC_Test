@@ -56,6 +56,9 @@ id getKeysAndValues(NSDictionary *aDict);
 NSDictionary *dictWithKeysAndValues(NSArray *keys, NSArray *values);
 
 
+
+
+
 // Arbitrary Haskell values
 // (A wrapper for StablePtr)
 @interface HSValue : NSObject {
@@ -87,3 +90,9 @@ HsStablePtr hsValue_getStablePtr(HSValue *hsvalue);
 
 -(id)callWithArg:(id)arg1 arg2:(id)arg2;
 @end
+
+
+// These functions must be provided by the Haskell Controller
+id initController(NSDictionary *ivars);
+id getMethodNames(HSValue *controller);
+id getMethod(HSValue *controller, NSString *methodName);
