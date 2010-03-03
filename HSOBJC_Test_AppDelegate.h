@@ -2,7 +2,7 @@
 
 #import <Cocoa/Cocoa.h>
 
-@interface HSOBJC_Test_AppDelegate : NSObject <NSApplicationDelegate> {
+@interface HSOBJC_Test_AppDelegate : NSObject  {
     NSWindow *window;
 }
 

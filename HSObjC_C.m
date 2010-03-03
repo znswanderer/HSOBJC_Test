@@ -166,10 +166,15 @@ id *getObjects(NSArray *anArray)
 // NSDicionary handling
 id getKeysAndValues(NSDictionary *aDict)
 {
+    NSArray *keys = [aDict allKeys];
     NSMutableArray *result = [[NSMutableArray alloc] init];
-    [aDict enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
-        [result addObject:[NSArray arrayWithObjects:key, obj, nil]];
-    }];
+
+    NSUInteger i, count = [keys count];
+    for (i = 0; i < count; i++) {
+        NSObject *key = [keys objectAtIndex:i];
+        [result addObject:[NSArray arrayWithObjects:key, [aDict objectForKey:key], nil]];
+    }
+    
     return [result autorelease];
 }
 
