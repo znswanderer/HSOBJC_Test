@@ -93,6 +93,6 @@ HsStablePtr hsValue_getStablePtr(HSValue *hsvalue);
 
 
 // These functions must be provided by the Haskell Controller
-id initController(NSDictionary *ivars);
+HSValue *initController(NSDictionary *ivars);
 id getMethodNames(HSValue *controller);
 id getMethod(HSValue *controller, NSString *methodName);

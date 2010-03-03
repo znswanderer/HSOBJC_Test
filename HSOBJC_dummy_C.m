@@ -17,7 +17,7 @@ void freeStablePtr(HsStablePtr aStablePointer)
     return;
 }
 
-id initController(NSDictionary *ivars)
+HSValue *initController(NSDictionary *ivars)
 {
     return nil;
 }
