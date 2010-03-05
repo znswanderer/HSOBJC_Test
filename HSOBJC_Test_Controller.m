@@ -45,7 +45,9 @@
 }
 
 
-// NSArray test
+// The following two IBActions could be implemented in the Controller.hs like
+// all the other actions. But I just wanted to keep two "original" Objective-C
+// actions to demonstrate the calling of Haskell controller "methods"
 - (IBAction)arrayInput:(id)sender;
 {
     NSArray *inputArray = [[(NSTextField*)sender stringValue] componentsSeparatedByString:@", "];

@@ -22,7 +22,7 @@ HSValue *initController(NSDictionary *ivars)
     return nil;
 }
 
-id getMethodNames(HSValue *controller)
+NSArray *getMethodNames(HSValue *controller)
 {
     return nil;
 }

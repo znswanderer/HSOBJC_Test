@@ -82,6 +82,11 @@ getMethod contrl mName = runId $
        mName' <- fromId mName
        case M.lookup mName' (ctrMethods contrl') of
            Nothing  -> throwError $ "Method " ++ (show mName') ++ " not defined."
+           -- construct a "bound method" (like Python's) by executing the
+           -- (Controller -> IOOBJC StableId) function `act` with the concrete
+           -- controller contrl'.
+           -- The controller is then available in the resulting StableId via
+           -- a closure.
            Just act -> act contrl'
 
 connectOutlets :: Controller -> IOOBJC ()
@@ -151,7 +156,7 @@ connectOutlets contrl =
 
 
     -- ------------------------------------------
-    -- Helper
+    -- Helper functions
     outlet :: String -> IOOBJC StableId
     outlet oName = case (T.pack oName) `M.lookup` (ctrOutlets contrl) of
                      Just x  -> return x
@@ -165,7 +170,13 @@ connectOutlets contrl =
 
            
             
--- "Methods"
+{- "Methods"
+
+    Methods are implemented as functions in which the first argument is
+    the object (controller) itself. Just like Python methods.
+    In the MethodTable we store functions (Controller -> IOOBJC StablId).
+    This way the HSFuncX objects are created only when needed.
+-}
 type MethodTable = M.Map T.Text (Controller -> IOOBJC StableId)
 
 methods :: MethodTable
