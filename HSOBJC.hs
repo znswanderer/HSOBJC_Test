@@ -38,7 +38,8 @@ module HSObjC
      (#)
     ) where
 
-import Foreign
+import Foreign hiding (newForeignPtr)
+import Foreign.Concurrent (newForeignPtr)
 import Foreign.C.Types
 import Foreign.C.String
 import Foreign.Marshal.Array
@@ -96,7 +97,7 @@ foreign import ccall unsafe "HSObjC_C.h setValueForKey"   c_setValueForKey   :: 
           to the Haskell runtime.
 -}
 foreign import ccall        "Cocoa.h NSApplicationMain"   c_NSApplicationMain :: CInt -> Ptr (Ptr CChar) -> IO CInt
-foreign import ccall        "HSObjC_C.h &releaseId"       c_FunPtr_releaseId  :: FunPtr (Id -> IO ())
+foreign import ccall        "HSObjC_C.h releaseId"        c_releaseId         :: Id -> IO ()
 foreign import ccall        "HSObjC_C.h autoreleaseId"    c_autoreleaseId     :: Id -> IO Id
 foreign import ccall        "HSObjC_C.h performMethod0"   c_performMethod0    :: CString -> Id -> IO Id
 foreign import ccall        "HSObjC_C.h performMethod1"   c_performMethod1    :: CString -> Id -> Id -> IO Id
@@ -142,13 +143,14 @@ perfSel1' = perfSel1
 
 
 whenKindOf :: (OBJC a) => String -> (Id -> IO a) -> Id -> IOOBJC a
-whenKindOf className f ptr = do isKind <- liftIO $ isKindOfClass
+whenKindOf className f ptr = do isKind <- isKindOfClass
                                 if isKind 
                                    then liftIO $ f ptr
                                    else throwError $ "not kind of" ++ className   
     where
-        isKindOfClass :: IO Bool
-        isKindOfClass = BS.useAsCString (BS8.pack className) $ \cstr ->
+        isKindOfClass :: IOOBJC Bool
+        isKindOfClass = liftIO $
+                        BS.useAsCString (BS8.pack className) $ \cstr ->
                             do res <- c_isKindOf ptr cstr
                                case (fromIntegral res) of
                                    0         -> return False
@@ -188,7 +190,8 @@ instance OBJC StableId where
                 \ptr -> c_retainId ptr >>= c_autoreleaseId
     
     fromId ptr = liftIO $ 
-                 do x <- c_retainId ptr >>= newForeignPtr c_FunPtr_releaseId 
+                 do ptr' <- c_retainId ptr
+                    x    <- newForeignPtr ptr' $ c_releaseId ptr'
                     return $ StableId x
 
 -- Dummy instance for show, just to print something
