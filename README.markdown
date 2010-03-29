@@ -8,18 +8,18 @@ A typical `OBJC` Haskell/Cocoa application would consist of:
 
 * A small Objective-C proxy controller: This is mainly for exporting the `IBOutlet`s to the Haskell controller and setting up the Haskell controller.
 
-* A Haskell controller. This will be stateless and is basically a classical MVC controller.
+* A Haskell controller: This will be stateless and is basically a classical MVC controller.
 
 * A Haskell model. 
 
 
 ## The `OBJC` typeclass
 
-This typeclass deals with the conversion of Objective-C objects from/to Haskell values. For example there is an easy way to convert a `NSArray` to a Haskell list and vice versa.
+The typeclass deals with the conversion of Objective-C objects from/to Haskell values. For example there is an easy way to convert a `NSArray` to a Haskell list and vice versa.
 
 ## Further reading
 
-For more information please read please follow the links to my blog posts:
+For more information please follow the links to my blog posts:
 
 * ["Curry’n’C Converter — Using Haskell with Objective-C in the Classic Cocoa Tutorial"][my1]
 * ["A small Haskell / Objective-C Interface"][my2]
