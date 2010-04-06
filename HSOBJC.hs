@@ -285,6 +285,22 @@ instance (OBJC a, OBJC b) => OBJC (a, b) where
                                              return (a, b)
                       otherwise        -> throwError "Wrong number of arguments for (,)"
 
+instance (OBJC a, OBJC b, OBJC c) => OBJC (a, b, c) where
+    -- via list and StableId
+    toId (a, b, c) = do -- wrap arguments into opaque StableId, so that we can use them in a list
+                     aStId <- toStableId a 
+                     bStId <- toStableId b
+                     cStId <- toStableId c
+                     toId [aStId, bStId, cStId]
+                     
+    fromId x = do ys <- fromId x :: IOOBJC [StableId]
+                  case ys of
+                      (aStId:bStId:cStId:[]) -> do a <- toOBJC aStId
+                                                   b <- toOBJC bStId
+                                                   c <- toOBJC cStId
+                                                   return (a, b, c)
+                      otherwise        -> throwError "Wrong number of arguments for (,,)"
+
 
 -- Dictionaries
 {- We define dictionaries in Haskell as Maps, because lookup table [()] would conflict with
